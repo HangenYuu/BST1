@@ -1,0 +1,63 @@
+---
+title: "Report 1"
+author: "Pham Nguyen Hung"
+format:
+  html:
+    code-fold: false
+jupyter: python3
+---
+# Process image
+This is my report about preliminary results with datasets generation.
+
+## Dataset format
+The dataset format is based loosely on the format of the dataset of the [NTIRE 2021 Challenge on HDR Imaging - Multiple File Track](https://ar5iv.labs.arxiv.org/html/2106.01439). A data point will consist of three images at three different exposures and one ground truth image, all in .png format. We based it 'loosely' because we did not replicate the complicated precedure to introduce noise and vary the exposure of the dataset creators. The raw file will be taken from the [MIT-Adobe FiveK Dataset](https://data.csail.mit.edu/graphics/fivek/).
+
+## Procedure
+We use OpenCV to read the image file, then either apply a tonemapping function with gamma = 2.2 to the value stored in the pixel or not. Afterwards, we applied `np.clip()` to cap the value between 0-255 (8 bit per pixel) and save the file in the .png format.
+```{python}
+# To generate result without tonemapping
+raw_dir = 'data/raw_hdr'
+res_dir = 'data/result_no_tonemap'
+# tonemapLDR = cv2.createTonemap(2.2)
+for filename in os.listdir(raw_dir):
+    f = os.path.join(raw_dir, filename)
+    # Only work on the image file
+    if os.path.isfile(f):
+        im = cv2.imread(f, cv2.IMREAD_ANYDEPTH)
+        # im = tonemapLDR.process(im)
+        for i in [1, 2, 4]:
+            im2_8bit = np.clip(im * 1024 / i, 0, 255).astype('uint8')
+            new_filename = filename + str(i) + ".png"
+            new_filename = os.path.join(res_dir, new_filename)
+            cv2.imwrite(new_filename, im2_8bit)
+```
+```{python}
+# To generate result with tonemapping
+raw_dir = 'data/raw_hdr'
+res_dir = 'data/result_with_tonemap'
+tonemapLDR = cv2.createTonemap(2.2)
+for filename in os.listdir(raw_dir):
+    f = os.path.join(raw_dir, filename)
+    # Only work on the image file
+    if os.path.isfile(f):
+        im = cv2.imread(f, cv2.IMREAD_ANYDEPTH)
+        im = tonemapLDR.process(im)
+        for i in [1, 2, 4]:
+            im2_8bit = np.clip(im * 1024 / i, 0, 255).astype('uint8')
+            new_filename = filename + str(i) + ".png"
+            new_filename = os.path.join(res_dir, new_filename)
+            cv2.imwrite(new_filename, im2_8bit)
+```
+```{python}
+#| fig-cap: "Demonstration of the np.clip() function"
+import matplotlib.pyplot as plt
+import numpy as np
+x = np.linspace(-100,355,num=500)
+y = np.clip(x,0,255)
+plt.plot(x, y)
+```
+
+## Difficulties
+The pictures in the MIT 5K dataset were in the .tiff format with 16 bit per channel. This conflicted with the ToneMap object of OpenCV, which required float32 data type for each channel. After converting the bit value to float, the ToneMap and clipping function works just fine; however, the resulting images appeared lossy. To create better data, we converted the .tiff16 file to .hdr first using an online tool called [Convertio](https://convertio.co/vn/tiff-hdr/). The resulting images appeared better in quality and contrast. However, we realized that the value of i used above is not one-size-fit-all. The resulting training data were bad for 'a0001' image while they were fine for 'a0002' to 'a0005' images. The contrast of the images with or without tonemapping is also different.
+
+## Results
