@@ -1,0 +1,1 @@
+Ground truth was created from the .tif file with CloudConvert
